@@ -20,7 +20,7 @@ How does the graduation degree, amount of internships, and cummulative GPA relat
 	-How many graduates have active Visas and had internships?
 		-Group graduates by active Visas according to their degrees.
 		-Which one of those graduates with active Visas had internships?
-		-How much did this effect their starting salaries according to their 				internships?
+		-How much did this effect their starting salaries according to their internships?
 
 	-What percentage of graduates with active Visas have a job relating to their field?
 
@@ -30,6 +30,6 @@ How does the graduation degree, amount of internships, and cummulative GPA relat
 
 	-How good of an indicator is cumulative GPA when predicting starting salary?
 
-	-Create a list of everyone who has a starting salary over 50,000 that didn't have an 	interniship.
+	-Create a list of everyone who has a starting salary over 50,000 that didn't have an interniship.
 
-	-Create a graph with the percentages of the graduates who found jobs pertaining to 	their degree.
+	-Create a graph with the percentages of the graduates who found jobs pertaining to their degree.
