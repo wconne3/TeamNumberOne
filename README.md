@@ -24,7 +24,7 @@ How does the graduation degree, amount of internships, and cummulative GPA relat
 
 	-What percentage of graduates with active Visas have a job relating to their field?
 
-	-Did the hours per week and number per week as an intern affect the starting salaries of graduates.
+	-Did the hours per week as an intern affect the starting salaries of graduates.
 
 	-Is a higher/lower amount of internships proportional to the starting salaries of graduates.
 
