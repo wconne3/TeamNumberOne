@@ -8,12 +8,12 @@ Question:
 How does the graduation degree, amount of internships, and cummulative GPA relate to the starting salary of graduates?
 
 	-Create a list in ascending order of graduates' GPA along with their starting salaries grouped by state.
+	
+	-Create a descending list of average salary of all internship by organization.
 
 	-How did the organization that graduates interned at affected their starting salaries.
 
-	-Grouping the graduates by degrees and cummulative GPA, facet each map by degrees to show GPA and entry salary.
-
-	-Create a descending list of average salary of all internship.
+	-Grouping the graduates by degrees and cummulative GPA, create graphs by degrees to show starting salaries.
 
 	-Create a chart comparing the hourly wages of paid internships to the starting salaries of the graduates grouped by degree.
 
