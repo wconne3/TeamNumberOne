@@ -1,0 +1,281 @@
+---
+title: "Analytics by Group 1"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    theme: cerulean
+editor_options: 
+  chunk_output_type: console
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(dplyr)
+library(scales)
+library(shiny)
+library(knitr)
+library(htmltools)
+library(data.table)
+library(htmlTable)
+library(DT)
+```
+
+```{r}
+con <- dplyr::src_mysql(
+  host = "ba-isdsclass-programdev.lsu.edu",
+  port = 3306,
+  user = 'student',
+  password = 'student',
+  dbname = "isds_3105") 
+```
+
+```{r}
+commencement <- tbl(con, 'commencement')
+currentPosition <- tbl(con, 'currentPosition')
+location <- tbl(con, 'location')
+internship <- tbl(con,'internship')
+organization <- tbl(con,'organization')
+title <- tbl(con,'title')
+college <- tbl(con, 'college')
+graduation <- tbl(con, 'graduation')
+graduationTitle <- tbl(con, 'graduationTitle')
+employment <- tbl(con, 'employment')
+fulltime <- tbl(con, 'fulltime')
+paidInternship <- tbl(con, 'paidInternship')
+```
+
+```{r}
+## Question 1 - GPA to Full Time Salary
+gpa_salary <- left_join(graduation, currentPosition, by = 'graduationId') %>%
+  left_join(., employment, by = 'idCurrentPosition') %>%
+  left_join(., fulltime, by = 'idCurrentPosition') %>% select(graduationId, cumulativeGPA, salary)
+
+gpa_salary1 <- gpa_salary %>% collect() %>% drop_na(salary) %>% drop_na(cumulativeGPA)
+cut(gpa_salary1$cumulativeGPA, breaks=c(2.0, 2.3, 2.5, 2.8, 3.0, 3.3, 3.5, 3.8, 4.0), right = FALSE) -> gpa_salary1$range
+gpa_salary2 <- gpa_salary1 %>% group_by(range) %>% summarise(avgSalary = mean(salary))
+
+```
+
+```{r}
+##Question 2 - Companies that Paid the Most
+paid_intern <- left_join(internship, paidInternship, by = 'internshipId') %>% 
+  left_join(., organization, by = 'organizationId') %>% 
+  select(graduationId, organizationId, organizationName, hourlyWage) %>% collect() %>% drop_na(hourlyWage) %>% 
+  group_by(organizationName) %>% summarise(avgHourlyWage = mean(hourlyWage))
+```
+
+```{r}
+##Question 3 - Major to Salary
+gpa_salary %>% left_join(., graduationTitle, by = 'graduationId') %>% 
+  left_join(., title, by = 'idTitle') %>% select(graduationId, cumulativeGPA, salary, majorName) -> majorSalary
+
+majorSalary1 <- majorSalary %>% collect() %>% drop_na(cumulativeGPA) %>% drop_na(salary)
+cut(majorSalary1$cumulativeGPA, breaks=c(2.0, 2.3, 2.5, 2.8, 3.0, 3.3, 3.5, 3.8, 4.0), right = FALSE)  -> majorSalary1$range
+
+avgSalaryByMajor <- majorSalary1 %>% group_by(majorName, range) %>% summarise(avgSalary = mean(salary)) 
+```
+
+```{r}
+##Question 4 - Internship Hourly Wage to Starting Salary
+internship_hourly <- left_join(internship, paidInternship, by = 'internshipId') %>% 
+  left_join(., organization, by = 'organizationId') %>% 
+  select(graduationId, organizationId, organizationName, hourlyWage)
+
+internToSalary <- internship_hourly %>% left_join(.,currentPosition, by = 'graduationId') %>%
+  left_join(.,fulltime, by = 'idCurrentPosition') %>% 
+  select(graduationId, hourlyWage, salary) %>% collect() %>% drop_na(hourlyWage,salary) %>% group_by(graduationId) %>%
+  summarise(avgHourlywage = mean(hourlyWage), avgSalary = mean(salary))
+
+cut(internToSalary$avgHourlywage, breaks=c(0, 5, 10, 15, 20, 30, 40, 45, 50), right = FALSE) -> internToSalary$range
+
+internToSalary %>% group_by(range) %>% summarise(avgSalary = mean(avgSalary)) -> salaryByIntern
+
+sBIPlot <- ggplot(data = salaryByIntern) + geom_col(aes(x = range, y = avgSalary)) + xlab('Average Internship Hourly Wage') + 
+  ylab('Average Full Time Salary')
+```
+
+```{r}
+##Question 5 - Number of Internships to Salary
+numOfInternships <- internship_hourly %>% left_join(.,currentPosition, by = 'graduationId') %>%
+  left_join(.,fulltime, by = 'idCurrentPosition') %>% 
+  select(graduationId, hourlyWage, salary) 
+
+numOfInternships %>% count(graduationId) %>% left_join(., numOfInternships, by = 'graduationId') %>% 
+  group_by(graduationId) %>% 
+  summarise(avgHourlyWage = mean(hourlyWage), avgSalary = mean(salary), n = n) -> numOfInternships1
+
+left_join(graduation, numOfInternships1, by = 'graduationId') %>% select(graduationId, avgSalary, n) %>% group_by(n) %>%
+  summarise(avg = mean(avgSalary, na.rm = T)) -> numOfInternships2
+  
+hh <- data.frame(numOfInternships2) %>% ggplot() + geom_col(aes(x=n,y=avg)) + xlab('Number of Internships') +
+  ylab('Starting Salary')
+  
+```
+
+```{r}
+##Question 6 - Jobs Related to Their Degree
+related <- left_join(graduation, currentPosition, by = 'graduationId') %>% 
+  left_join(., employment, by = 'idCurrentPosition') %>% 
+  left_join(., fulltime, by = 'idCurrentPosition') %>%
+  select(graduationId, idCurrentPosition, newEmployment, relatedToMajor, salary ) %>% 
+  collect() %>% drop_na(salary) 
+
+related %>% group_by(newEmployment) %>% count(newEmployment) %>% na.omit() -> pieNewEmploy
+related %>% group_by(relatedToMajor) %>% count(relatedToMajor) %>% na.omit() -> pieRelated
+
+related %>% group_by(newEmployment) %>% summarise(avg = mean(salary)) %>% 
+  ggplot() + geom_col(aes(x=newEmployment, y=avg)) + ylab('Average Salary') -> colNewEmploy
+
+colRelated <- related %>% group_by(relatedToMajor) %>% summarise(avg = mean(salary)) %>% 
+  ggplot() + geom_col(aes(x=relatedToMajor, y=avg)) + ylab('Average Salary') + 
+  theme(axis.text.x = element_text(angle=45, hjust=1)) +
+  scale_x_discrete(labels = c("Barely or not related / Prefered","Barely or not related",
+                              "Directly related","Somewhat Related", "NA"))
+```
+
+
+GPA
+=============================
+
+Column {data-width=1000 .tabset}
+-----------------------------------------------------------------------
+###Individual GPA to Salaries
+
+```{r}
+gpa_salary1 %>% ggplot() + geom_point(aes(x=cumulativeGPA, y=salary)) + 
+  geom_smooth(method='lm', aes(x=cumulativeGPA, y=salary)) + 
+  scale_y_continuous(labels = comma, limits = c(0,200000))
+```
+
+
+###Average Salaries by GPA Range
+
+```{r}
+gpa_salary2 %>% ggplot() + geom_col(aes(x=range, y=avgSalary)) + 
+  xlab('GPA Range') + ylab('Average Full Time Salary')
+```
+
+
+
+Internship
+============================
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+###Internship Salries by Company
+
+```{r}
+datatable(paid_intern,filter = 'top',options=list(pageLength=25,searching=F),
+          colnames=c("Organization Name","Average Hourly Wage"),
+          caption=htmltools::tags$caption(
+    style = 'caption-side: top; text-align: left;',
+    htmltools::strong('Hourly Wages for Interns at the Following Companies'))) 
+              
+```
+
+Column {data-width=600 .tabset .tabset-fade}
+-----------------------------------------------------------------------
+###Internship to Start Salary
+
+```{r}
+ggplotly(sBIPlot)
+caption=htmltools::tags$caption(
+    style = 'caption-side: top; text-align: left;',
+    htmltools::strong('How Salary of Interns Compare to Their Full Time Salaries'))
+```
+
+###Number of Internships on Full Time Salary
+
+```{r}
+ggplotly(hh)
+```
+
+
+Major
+============================
+
+Inputs {.sidebar}
+-------------------------------------
+Choose a major to display the average salary.
+```{r}
+MajorNames <- setNames(unique(avgSalaryByMajor$majorName), unique(avgSalaryByMajor$majorName)) %>% as.list()
+selectInput("Major", label = h4("Major"), 
+    choices = MajorNames, 
+    selected = 'Accounting')
+```
+
+
+Column {data-width=900}
+-----------------------------------------------------------------------
+
+### `r reactive({ (input$Major) })`
+```{r}
+majorPlot <- function(df, major) {
+  filter( df , majorName == major ) %>%
+    ggplot() + geom_col(aes(range, avgSalary)) + 
+    theme(axis.text.x = element_text(size = 16, angle=45, hjust=1)) +
+    xlab('GPA Range') + ylab('Average Salary')
+}
+
+
+renderPlot({ 
+  majorPlot( avgSalaryByMajor, major = input$Major) 
+  })
+```
+
+Relation Between Major and Employment
+=============================
+
+Column {data-width=300 .tabset}
+-----------------------------------------------------------------------
+###Pie Chart For New Employment
+```{r}
+percent <- round(pieNewEmploy$n/sum(pieNewEmploy$n)*100)
+pie(x = pieNewEmploy$n, labels = c('Held Prior To Graduation','New Employment'))
+```
+
+###Pie Chart For Related
+```{r}
+pie(x = pieRelated$n, labels = c('Barely or not related, but preferred',
+                                 'Barely or not related','Directly related','Somewhat related'))
+```
+
+Column {data-width=700 .tabset}
+-----------------------------------------------------------------------
+
+###Graph for Related
+```{r}
+ggplotly(colRelated)
+```
+
+###Graph for Employment
+```{r}
+ggplotly(colNewEmploy)
+```
+
+Info
+=============================
+
+Column {data-width=1000}
+-----------------------------------------------------------------------
+###For this project, we wanted to look into three variables (GPA, major, and internships) and how it affected the full time salaries of graduates.
+
+Column {data-width=1000 .tabset}
+----------------------------------------------------------------------
+###Findings
+In terms of GPA, we found that there we observed using the data points and the line of best fit that there is a small incremental increase associated with GPA. Additionally, it shows on the bar chart given that there is also an increase in average salary as GPA increases.
+
+The average hourly wage of internships show a high correlation to the average full time salary. The higher the average hourly wage was during an internship - the higher the full time salary. 
+
+For those that had internships, the highest full time salary was for those that had 2 internships. Oddly enough, there seems to be a negative trend after 2 internships.
+
+We found that ISDS majors GPA's have little correlation to their salaries. However, those that graduated with a GPA range of 3.3 - 3.5 have the highest salaries.
+
+Our project also shows that those who found new employment after graduation were paid more than those who held the position prior to graduation. And jobs directly relating to their major were also paid the most.
+
+
+
